@@ -7,23 +7,27 @@ class AntColony:
         N = len(target_graph)
         self.distance = target_graph
         self.pheromone = np.ones_like(target_graph)*0.01
+        print(N)
 
         self.ants = list()
         self.params = params
         self.min_cost_path = None
         self.min_cost = None
 
-    def get_probability_vector(self, src, exclude = None):
-        total_pheromone = sum([self.pheromone[src][dest] 
-                               if dest != exclude else 0
-                               for dest in self.distance.nodes])
-        probabilities = [self.get_edge_probability(total_pheromone, src, dest)
-                         if dest != exclude else 0 
+    def get_probability_vector(self, src, exclude : set = set()):
+        tau = lambda src, dest : np.power(self.pheromone[src][dest], self.params.alpha)
+        eta = lambda src, dest : np.power(self.distance[src][dest], self.params.beta)
+        edge_prob = lambda src, dest, basis : tau(src,dest)*eta(src,dest) / basis
+
+        basis = sum([tau(src,dest) * eta(src,dest)
+                     if not dest in exclude else 0
+                     for dest in self.distance.nodes])
+
+        probabilities = [edge_prob(src,dest,basis)
+                         if not dest in exclude else 0
                          for dest in self.distance.nodes]
+
         return probabilities
-    
-    def get_edge_probability(self, total_pheromone, src, dest):
-        return self.pheromone[src][dest] / total_pheromone
 
     def add_ant(self, source_node):
         ant = self.Ant(source_node, self)
@@ -40,7 +44,6 @@ class AntColony:
         for ant in self.ants:
             path = ant.find_path()
             edges = list(zip(path,path[1:]))
-            print(edges)
             path_cost = sum([self.distance[edge] for edge in edges])
             for edge in edges:
                 self.deposit_pheromone(edge, path_cost)
@@ -60,20 +63,20 @@ class AntColony:
         def go_next(self):
             target = self.colony.distance[self.cur]
             if len(self.path) == len(target): return None
-            threshold = self.colony.get_probability_vector(self.cur, exclude = self.src)
+            threshold = self.colony.get_probability_vector(self.cur, exclude = self.visited)
             chosen = np.random.choice(np.arange(len(target)), p = threshold)
             return chosen
         
         def find_path(self):
-            self.path = set()
             self.visited = set()
+            self.path = list()
 
             previous = self.src
             self.visited.add(previous)
-            self.path.add(previous)
+            self.path.append(previous)
 
-            while current := self.go_next():
-                self.path.add(current)
+            while (current := self.go_next()) is not None:
+                self.path.append(current)
                 self.visited.add(current)
             
             return list(self.path) + [self.src]
@@ -82,7 +85,10 @@ class AntColony:
             return not node in self.visited
     
     class Parameters:
-        def __init__(self, evaporation, deposit, iterations):
+        def __init__(self, evaporation, deposit, iterations,
+                     alpha, beta):
             self.evaporation = evaporation
             self.deposit = deposit
             self.iterations = iterations
+            self.alpha = alpha
+            self.beta = beta

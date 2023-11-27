@@ -9,7 +9,7 @@ with open(dist_file, 'r') as file:
 
 graph = CompleteGraph(adj_matrix)
 
-params = AntColony.Parameters(1,0.5,10)
+params = AntColony.Parameters(0.5, 1, 100000, 0.5, 0.5)
 colony = AntColony(graph, params)
 
 for i in range(len(adj_matrix)): colony.add_ant(i)
