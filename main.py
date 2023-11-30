@@ -1,9 +1,9 @@
 import networkx as nx
-import matplotlib.pyplot as plt
 import numpy as np
 from copy import deepcopy
+from sys import argv
 
-gml = nx.read_gml('sjdr.gml', label = 'id')
+gml = nx.read_gml(argv[1], label = 'id')
 n = len(gml.nodes)
 adj_matrix = np.zeros(shape = (n,n), dtype = np.int8)
 
@@ -34,15 +34,10 @@ while len(cover_edges) < len(gml.edges):
         priority[v] += 1
         cover_edges.add((min(u,v),max(u,v)))
 
-edge_color = ['#20a387' if edge in cover_edges else 'black' for edge in gml.edges]
-node_color = ['#481567' if node in cover_nodes else '#000000' for node in gml.nodes]
-node_size = [30 if node in cover_nodes else 5 for node in gml.nodes]
-
-print(node_size.count(30), node_size.count(5))
-
-nx.draw(gml, node_size = node_size, 
-        edge_color = edge_color,
-        node_color = node_color,
-        pos = nx.kamada_kawai_layout(gml))
-plt.show()
-plt.savefig('teste.png')
+for node in cover_nodes:
+    print('Esquina', node)
+    print('Ruas monitoradas:')
+    for v in range(n):
+        if not adj_matrix[node][v]: continue
+        print('\t', gml.get_edge_data(node,v)['name'])
+    print()
