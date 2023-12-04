@@ -7,27 +7,13 @@ class AntColony:
         N = len(target_graph)
         self.distance = target_graph
         self.pheromone = np.ones_like(target_graph)*0.01
-        print(N)
 
         self.ants = list()
         self.params = params
         self.min_cost_path = None
         self.min_cost = None
-
-    def get_probability_vector(self, src, exclude : set = set()):
-        tau = lambda src, dest : np.power(self.pheromone[src][dest], self.params.alpha)
-        eta = lambda src, dest : np.power(self.distance[src][dest], self.params.beta)
-        edge_prob = lambda src, dest, basis : tau(src,dest)*eta(src,dest) / basis
-
-        basis = sum([tau(src,dest) * eta(src,dest)
-                     if not dest in exclude else 0
-                     for dest in self.distance.nodes])
-
-        probabilities = [edge_prob(src,dest,basis)
-                         if not dest in exclude else 0
-                         for dest in self.distance.nodes]
-
-        return probabilities
+        
+        self.randomizer = self.StochasticManager(self)
 
     def add_ant(self, source_node):
         ant = self.Ant(source_node, self)
@@ -38,7 +24,9 @@ class AntColony:
 
     def set_evaporation(self):
         for edge in self.distance.get_edges():
-            self.pheromone[edge] *= (1 - self.params.evaporation)
+            randomize = np.random.choice([0,1], [1 - self.params.delta, self.params.delta])
+            decrease = self.params.evaporation + randomize * np.random.rand()
+            self.pheromone[edge] *= (1 - decrease)
 
     def run_epoch(self):
         for ant in self.ants:
@@ -63,7 +51,7 @@ class AntColony:
         def go_next(self):
             target = self.colony.distance[self.cur]
             if len(self.path) == len(target): return None
-            threshold = self.colony.get_probability_vector(self.cur, exclude = self.visited)
+            threshold = self.colony.randomizer.get_probability_vector(self.cur, exclude = self.visited)
             chosen = np.random.choice(np.arange(len(target)), p = threshold)
             return chosen
         
@@ -92,3 +80,25 @@ class AntColony:
             self.iterations = iterations
             self.alpha = alpha
             self.beta = beta
+
+    class StochasticManager:
+        def __init__(self, colony):
+            self.pheromone = colony.pheromone
+            self.distance = colony.distance
+            self.params = colony.params
+
+        def get_probability_vector(self, src, exclude : set = set()):
+            tau = lambda src, dest : np.power(self.pheromone[src][dest], self.params.alpha)
+            eta = lambda src, dest : np.power(self.distance[src][dest], self.params.beta)
+            edge_prob = lambda src, dest, basis: tau(src,dest)*eta(src,dest) / basis
+
+            basis = sum([tau(src,dest) * eta(src,dest)
+                        if not dest in exclude else 0
+                        for i,dest in enumerate(self.distance.nodes)])
+
+            probabilities = np.array([edge_prob(src,dest,basis)
+                                     if not dest in exclude else 0
+                                     for i,dest in enumerate(self.distance.nodes)])
+
+            return probabilities
+        
